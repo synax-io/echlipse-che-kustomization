@@ -1,0 +1,119 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keycloak
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: keycloak
+  template:
+    metadata:
+      labels:
+        app: keycloak
+    spec:
+      containers:
+      - command:
+        - /scripts/kc_realm_user.sh
+        env:
+        - name: POSTGRES_PORT_5432_TCP_ADDR
+          value: postgres
+        - name: POSTGRES_PORT_5432_TCP_PORT
+          value: "5432"
+        - name: POSTGRES_DATABASE
+          value: keycloak
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              key: postgres-user
+              name: che
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: postgres-password
+              name: che
+        - name: KEYCLOAK_USER
+          valueFrom:
+            secretKeyRef:
+              key: keycloak-user
+              name: che
+        - name: KEYCLOAK_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: keycloak-password
+              name: che
+        - name: CHE_HOST
+          value: che.cnative.io
+        - name: CHE_PORT
+          value: "5080"
+        - name: ROUTING_SUFFIX
+          value: cnative.io
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: PROTOCOL
+          value: http
+        image: eclipse/che-keycloak:nightly
+        imagePullPolicy: Always
+        livenessProbe:
+          failureThreshold: 11
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          successThreshold: 1
+          tcpSocket:
+            port: 8080
+          timeoutSeconds: 30
+        name: keycloak
+        ports:
+        - containerPort: 8080
+        readinessProbe:
+          failureThreshold: 10
+          httpGet:
+            path: auth/js/keycloak.js
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 3
+          successThreshold: 1
+          timeoutSeconds: 1
+        resources:
+          limits:
+            memory: 1536Mi
+          requests:
+            memory: 1024Mi
+        securityContext:
+          runAsUser: 26
+        volumeMounts:
+        - mountPath: /opt/jboss/keycloak/standalone/data
+          name: keycloak-data
+        - mountPath: /opt/jboss/keycloak/standalone/log
+          name: keycloak-log
+      initContainers:
+      - command:
+        - sh
+        - -c
+        - 'apk --no-cache add curl jq ; adresses_length=0; until [ $adresses_length
+          -gt 0 ]; do echo waiting service [https://kubernetes.default/api/v1/namespaces/$POD_NAMESPACE/endpoints/postgres] for postgres to be ready...; sleep 2; endpoints=`curl
+          -s --cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt -H "Authorization:
+          Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)"     https://kubernetes.default/api/v1/namespaces/$POD_NAMESPACE/endpoints/postgres`;
+          adresses_length=`echo $endpoints | jq -r ".subsets[]?.addresses // [] |
+          length"`; done;'
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        image: alpine:3.5
+        name: wait-for-postgres
+      restartPolicy: Always
+      serviceAccountName: che-keycloak
+      securityContext:
+        fsGroup: 26
+      volumes:
+      - name: keycloak-data
+        persistentVolumeClaim:
+          claimName: keycloak-data
+      - name: keycloak-log
+        persistentVolumeClaim:
+          claimName: keycloak-log

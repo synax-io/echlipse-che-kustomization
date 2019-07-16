@@ -1,0 +1,24 @@
+namespace: dev-tools
+
+# Images modify the tags for images without
+# creating patches.
+images:
+- name: alpine
+  newTag: "3.5"
+- name: eclipse/che-keycloak
+  newTag: 7.0.0-rc-3.0
+- name: eclipse/che-postgres
+  newTag: 7.0.0-rc-3.0
+- name: eclipse/che-server
+  newTag: 7.0.0-rc-3.0
+
+patches:
+ - ./patch-keycloak-ingress.yaml
+ - ./patch-che-ingress.yaml
+
+bases:
+- ../base/
+
+configMapGenerator:
+- env: ./files/che.env
+  name: che

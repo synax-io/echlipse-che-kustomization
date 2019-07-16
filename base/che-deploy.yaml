@@ -1,0 +1,107 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: che-server
+  name: che-server
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: che-server
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: che-server
+    spec:
+      containers:
+      - env:
+        - name: OPENSHIFT_KUBE_PING_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: CHE_JDBC_USERNAME
+          valueFrom:
+            secretKeyRef:
+              key: che-postgres-user
+              name: che
+        - name: CHE_JDBC_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: che-postgres-password
+              name: che
+        envFrom:
+        - configMapRef:
+            name: che
+        image: eclipse/che-server:7.0.0-rc-3.0
+        imagePullPolicy: Always
+        livenessProbe:
+          httpGet:
+            path: /api/system/state
+            port: 5080
+            scheme: HTTP
+          initialDelaySeconds: 120
+          timeoutSeconds: 10
+        name: che
+        ports:
+        - containerPort: 5080
+          name: http
+        - containerPort: 8000
+          name: http-debug
+        - containerPort: 8888
+          name: jgroups-ping
+        - containerPort: 8087
+          name: http-metrics
+        readinessProbe:
+          httpGet:
+            path: /api/system/state
+            port: 5080
+            scheme: HTTP
+          initialDelaySeconds: 15
+          timeoutSeconds: 60
+        resources:
+          limits:
+            memory: 600Mi
+          requests:
+            memory: 256Mi
+        securityContext:
+          runAsUser: 1724
+      initContainers:
+      - command:
+        - sh
+        - -c
+        - 'apk --no-cache add curl jq ; adresses_length=0; until [ $adresses_length
+          -gt 0 ]; do echo waiting for postgres to be ready...; sleep 2; endpoints=`curl
+          -s --cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt -H "Authorization:
+          Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)"     https://kubernetes.default/api/v1/namespaces/$POD_NAMESPACE/endpoints/postgres`;
+          adresses_length=`echo $endpoints | jq -r ".subsets[]?.addresses // [] |
+          length"`; done;'
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        image: alpine:3.5
+        name: wait-for-postgres
+      - command:
+        - sh
+        - -c
+        - 'apk --no-cache add curl jq ; adresses_length=0; until [ $adresses_length
+          -gt 0 ]; do echo waiting for keycloak service [https://kubernetes.default/api/v1/namespaces/$POD_NAMESPACE/endpoints/keycloak] to be ready...; sleep 2; endpoints=`curl
+          -s --cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt -H "Authorization:
+          Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)"     https://kubernetes.default/api/v1/namespaces/$POD_NAMESPACE/endpoints/keycloak`;
+          adresses_length=`echo $endpoints | jq -r ".subsets[]?.addresses // [] |
+          length"`; done;'
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        image: alpine:3.5
+        name: wait-for-keycloak
+      securityContext:
+        fsGroup: 1724
+      serviceAccountName: che

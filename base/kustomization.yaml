@@ -1,0 +1,34 @@
+# Images modify the tags for images without
+# creating patches.
+images:
+- name: alpine
+  newTag: "3.5"
+- name: eclipse/che-keycloak
+  newTag: 7.0.0-rc-3.0
+- name: eclipse/che-postgres
+  newTag: 7.0.0-rc-3.0
+- name: eclipse/che-server
+  newTag: 7.0.0-rc-3.0
+
+# List of resource files that kustomize reads, modifies
+# and emits as a YAML string
+resources:
+- che-deploy.yaml
+- che-endpoints-monitor-role.yaml
+- che-host-svc.yaml
+- che-ingress.yaml
+- che-keycloak-sa.yaml
+- che-sa.yaml
+- default-che-clusterrole-binding-crb.yaml
+- default-keycloak-role-binding-rb.yaml
+- keycloak-data-pvc.yaml
+- keycloak-deploy.yaml
+- keycloak-ingress.yaml
+- keycloak-log-pvc.yaml
+- keycloak-svc.yaml
+- postgres-data-pvc.yaml
+- postgres-deploy.yaml
+- postgres-svc.yaml
+- che-workspace-role-binding.yaml
+- che-workspace-role.yaml
+- che-workspace-sa.yaml

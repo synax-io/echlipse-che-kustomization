@@ -1,0 +1,18 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+  name: che-ingress
+spec:
+  rules:
+  - host: che.cnative.io
+    http:
+      paths:
+      - backend:
+          serviceName: che-host
+          servicePort: 5080
+        path: /
